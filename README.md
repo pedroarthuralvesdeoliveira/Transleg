@@ -1,19 +1,19 @@
 # Transleg
 
-Pipeline de scraping e ingestao analitica para relatorios operacionais e financeiros do portal Aleff, reestruturado com foco em legibilidade, extensibilidade e qualidade de engenharia.
+Scraping and analytics ingestion pipeline for operational and financial reports from the Aleff portal, redesigned with a strong focus on readability, extensibility, and engineering quality.
 
-O projeto nasceu a partir de um conjunto de scripts isolados e duplicados. Nesta versao, a ideia central foi transformar o fluxo em um produto de portfolio: arquitetura em camadas, catalogo declarativo de relatorios, transformacoes previsiveis, carga idempotente em PostgreSQL e uma documentacao que deixa claro como a solucao foi pensada.
+This project started from a set of isolated, highly duplicated scripts. In this version, the main goal was to turn that flow into a portfolio-grade project: layered architecture, a declarative report catalog, predictable data transformations, idempotent PostgreSQL loading, and documentation that makes the design decisions explicit.
 
-## O que este projeto demonstra
+## What this project demonstrates
 
-- Python com separacao explicita entre dominio, aplicacao e infraestrutura.
-- Uso pragmatico de SOLID, DRY e KISS sem transformar o projeto em overengineering.
-- Automacao de scraping com Selenium em um cliente orientado a fluxo.
-- Tratamento de dados tabulares com `pandas`, datas, numeros em locale PT-BR e chaves naturais.
-- Persistencia analitica em PostgreSQL com `SQLAlchemy Core` e `ON CONFLICT DO NOTHING`.
-- Operacao por CLI, permitindo sincronizacao pontual, incremental e backfill em janelas.
+- Python with explicit separation between domain, application, and infrastructure layers.
+- Pragmatic use of SOLID, DRY, and KISS without turning the project into overengineering.
+- Scraping automation with Selenium through a flow-oriented client.
+- Tabular data processing with `pandas`, date parsing, PT-BR locale numeric normalization, and natural keys.
+- Analytical persistence in PostgreSQL with `SQLAlchemy Core` and `ON CONFLICT DO NOTHING`.
+- CLI-based operation for point-in-time syncs, incremental loads, and backfills in chunks.
 
-## Arquitetura
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -32,11 +32,11 @@ flowchart LR
     CATALOG --> REPO
 ```
 
-## Fluxo de execucao
+## Execution flow
 
 ```mermaid
 sequenceDiagram
-    participant U as Usuario/CLI
+    participant U as User/CLI
     participant O as Orchestrator
     participant P as Portal Client
     participant A as Aleff
@@ -44,18 +44,18 @@ sequenceDiagram
     participant D as PostgreSQL
 
     U->>O: transleg sync received-invoices --start ... --end ...
-    O->>P: login + abrir relatorio
-    P->>A: preencher filtros e gerar Excel
-    A-->>P: relatorio concluido
-    P-->>O: arquivo baixado
-    O->>T: transformar DataFrame
-    T-->>O: dados curados
-    O->>D: insert com chave natural
+    O->>P: login + open report
+    P->>A: fill filters and generate Excel
+    A-->>P: report completed
+    P-->>O: file downloaded
+    O->>T: transform DataFrame
+    T-->>O: curated data
+    O->>D: insert with natural key
     D-->>O: rows inserted / ignored
-    O-->>U: resumo da execucao
+    O-->>U: execution summary
 ```
 
-## Estrutura
+## Project structure
 
 ```text
 Transleg/
@@ -72,42 +72,42 @@ Transleg/
 `-- tests/
 ```
 
-## Decisoes de design
+## Design decisions
 
-### 1. Catalogo declarativo de relatorios
+### 1. Declarative report catalog
 
-Os quatro fluxos do projeto original tinham a mesma espinha dorsal: login, navegacao por modulo, preenchimento de datas, pequenos filtros especificos, monitoramento e download do arquivo. Em vez de manter quatro scripts quase iguais, cada relatorio agora e descrito por um `ReportSpec` com:
+The four flows from the original project shared the same backbone: login, module navigation, date input, a few report-specific filters, monitoring, and file download. Instead of keeping four nearly identical scripts, each report is now described by a `ReportSpec` with:
 
-- ids do menu e do relatorio;
-- fragmento da rota;
-- descricao esperada no monitor;
-- prefixo do arquivo baixado;
-- mapeamento de colunas;
-- regras de limpeza numerica, datas e inteiros;
-- chave natural para deduplicacao.
+- menu and report ids;
+- route fragment;
+- expected description in the monitor screen;
+- downloaded file prefix;
+- column mapping;
+- numeric, date, and integer cleaning rules;
+- natural key for deduplication.
 
-Isso reduz o custo de manutencao e deixa a adicao de um quinto relatorio trivial.
+This reduces maintenance cost and makes adding a fifth report straightforward.
 
-### 2. Persistencia idempotente
+### 2. Idempotent persistence
 
-O repositorio cria a tabela de dominio automaticamente quando necessario e aplica `ON CONFLICT DO NOTHING` nas colunas de negocio definidas no catalogo. O efeito pratico e simples:
+The repository creates the domain table automatically when needed and applies `ON CONFLICT DO NOTHING` on the business columns defined in the catalog. In practice, this means:
 
-- reruns nao duplicam linhas;
-- backfills podem ser repetidos com seguranca;
-- a logica de upsert fica centralizada.
+- reruns do not duplicate rows;
+- backfills can be repeated safely;
+- upsert-like behavior stays centralized.
 
-### 3. Transformacao orientada a regras
+### 3. Rule-driven transformation
 
-Cada dataset tem diferencas reais de formato. Em vez de esconder isso em condicionais espalhadas, o transformador recebe a especificacao do relatorio e aplica apenas as regras relevantes:
+Each dataset has real formatting differences. Instead of hiding that in scattered conditionals, the transformer receives the report specification and applies only the relevant rules:
 
-- trim de strings;
-- remocao de linhas vazias e duplicadas;
-- conversao de datas com `dayfirst=True`;
-- numericos em locale brasileiro para `Decimal`;
-- inteiro com clipping em ranges conhecidos;
-- descarte de rodapes tecnicos quando o Excel exporta linhas extras.
+- string trimming;
+- removal of empty rows and duplicates;
+- date conversion with `dayfirst=True`;
+- Brazilian locale numeric normalization into `Decimal`;
+- integer coercion with clipping to known ranges;
+- removal of technical footer rows when the exported Excel includes them.
 
-## Modelo de auditoria
+## Audit model
 
 ```mermaid
 erDiagram
@@ -127,83 +127,83 @@ erDiagram
     }
 ```
 
-As tabelas de dominio sao criadas dinamicamente a partir do catalogo, com:
+Domain tables are created dynamically from the catalog, with:
 
-- `id` tecnico;
-- `loaded_at` para rastreabilidade;
-- unique constraint nas chaves naturais do relatorio.
+- a technical `id`;
+- `loaded_at` for traceability;
+- a unique constraint on the report natural keys.
 
-## Como executar
+## How to run
 
-### 1. Preparacao
+### 1. Setup
 
 ```bash
 cd Transleg
 cp .env.example .env
 ```
 
-Preencha as credenciais do portal e a `TRANSLEG_DATABASE_URL`.
+Fill in the portal credentials and `TRANSLEG_DATABASE_URL`.
 
-### 2. Instalar dependencias
+### 2. Install dependencies
 
 ```bash
 uv sync
 ```
 
-### 3. Listar relatorios disponiveis
+### 3. List available reports
 
 ```bash
 uv run transleg reports
 ```
 
-### 4. Rodar uma sincronizacao pontual
+### 4. Run a point-in-time sync
 
 ```bash
 uv run transleg sync received-invoices --start 2026-01-01 --end 2026-01-31
 ```
 
-### 5. Rodar sincronizacao incremental
+### 5. Run an incremental sync
 
 ```bash
 uv run transleg incremental payable-titles --default-start 2025-01-01
 ```
 
-### 6. Rodar backfill em chunks
+### 6. Run a chunked backfill
 
 ```bash
 uv run transleg backfill payable-titles --start 2024-01-01 --end 2025-12-31 --chunk-days 180
 ```
 
-## Qualidade e testes
+## Quality and tests
 
-Os testes incluidos cobrem a camada de transformacao e a consistencia do catalogo. Sao justamente as partes que mais sofrem regressao quando um scraping cresce sem disciplina.
+The included tests cover the transformation layer and catalog consistency. Those are exactly the areas most likely to regress when a scraping project grows without discipline.
 
 ```bash
 uv run --extra dev pytest
 ```
 
-## Melhorias futuras
+## Future improvements
 
-- snapshots de HTML para testes de regressao do scraper;
-- camada bronze/silver/gold para analise historica mais sofisticada;
-- particionamento por data em tabelas volumosas;
-- observabilidade com metricas e alertas;
-- execucao agendada com Prefect ou Airflow.
+- HTML snapshots for scraper regression tests;
+- bronze/silver/gold layering for more advanced historical analytics;
+- partitioning for large date-based tables;
+- observability with metrics and alerts;
+- scheduled execution with Prefect or Airflow.
 
-## Comparacao com a versao original
+## Comparison with the original version
 
-| Tema | Projeto original | Transleg |
+| Topic | Original project | Transleg |
 |---|---|---|
-| Estrutura | Scripts independentes | Pacote `src/` com camadas |
-| Reuso | Alto volume de codigo duplicado | Catalogo declarativo de relatorios |
-| Persistencia | Script acoplado ao ETL | Repositorio isolado com idempotencia |
-| Configuracao | Variaveis soltas | `pydantic-settings` |
-| Operacao | Scripts Python avulsos | CLI unica com `sync`, `incremental`, `backfill` |
-| Testes | Ausentes | Testes unitarios iniciais |
-| Documentacao | Minima | README focado em arquitetura e portifolio |
+| Structure | Independent scripts | `src/` package with layers |
+| Reuse | High code duplication | Declarative report catalog |
+| Persistence | ETL-coupled script | Isolated repository with idempotency |
+| Configuration | Loose environment variables | `pydantic-settings` |
+| Operation | Standalone Python scripts | Single CLI with `sync`, `incremental`, `backfill` |
+| Tests | None | Initial unit tests |
+| Documentation | Minimal | Portfolio-oriented README |
 
-## Observacoes
+## Notes
 
-- O projeto original `aleff` foi mantido intacto para preservar o historico e facilitar comparacoes.
-- `Transleg` nao tenta esconder a natureza fragil do scraping; em vez disso, isola os pontos de acoplamento e deixa explicito onde esta o risco operacional.
-- A documentacao assume GitHub como principal vitrine, por isso usa diagramas Mermaid nativos da plataforma.
+- The original `aleff` project was kept intact to preserve history and make comparisons easier.
+- `Transleg` does not try to hide the fragile nature of scraping; instead, it isolates the coupling points and makes the operational risk explicit.
+- The documentation assumes GitHub as the main showcase, so it uses native Mermaid diagrams supported by the platform.
