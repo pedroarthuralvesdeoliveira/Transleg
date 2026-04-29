@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "transleg"
+version = "0.1.0"
+description = "Pipeline de scraping, tratamento e carga analitica para relatorios operacionais e financeiros."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2.3",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.1",
+    "python-calamine>=0.3.1",
+    "python-dotenv>=1.0.1",
+    "selenium>=4.27.1",
+    "sqlalchemy>=2.0.36",
+    "psycopg[binary]>=3.2.4",
+    "typer>=0.15.1",
+    "rich>=13.9.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.4",
+]
+
+[project.scripts]
+transleg = "transleg.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/transleg"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
